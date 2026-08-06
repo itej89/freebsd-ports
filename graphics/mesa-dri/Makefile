@@ -61,7 +61,7 @@ OPTIONS_DEFAULT+=	${_gd}
 ${_gd}_VARS+=		GALLIUM_DRIVERS+=${_gd}
 . endfor
 
-OPTIONS_GROUP_VULKAN=	anv radv swrast_vk
+OPTIONS_GROUP_VULKAN=	anv radv swrast_vk pvr_vk
 VULKAN_DESC=		Vulkan drivers
 anv_DESC=		Intel GPU Gen9 and newer Vulkan support
 anv_BUILD_DEPENDS=	libclc-${LLVM_PORT:T}>0:devel/libclc@${LLVM_PORT:T} \
@@ -71,13 +71,14 @@ anv_RUN_DEPENDS=	spirv-tools>0:graphics/spirv-tools \
 			spirv-llvm-translator-${LLVM_PORT:T}>0:devel/spirv-llvm-translator@${LLVM_PORT:T}
 radv_DESC=		AMD/ATI Southern Islands and newer Vulkan support
 swrast_vk_DESC=		Software Rasterizer Vulkan support
+pvr_vk_DESC=		Imagination PowerVR Rogue Vulkan support
 
 OPTIONS_EXCLUDE+=	${ARCH:Marmv7:C/.+/anv radv/}
 OPTIONS_EXCLUDE+=	${ARCH:Namd64:Ni386:Nx86_64:C/.+/anv/}
 MESON_ARGS+=		-Dvulkan-drivers=${VULKAN_DRIVERS:ts,}
 . for _vd in ${OPTIONS_GROUP_VULKAN}
 OPTIONS_DEFAULT+=	${_vd}
-${_vd}_VARS+=		VULKAN_DRIVERS+=${_vd:S/anv/intel/:S/radv/amd/:S/swrast_vk/swrast/}
+${_vd}_VARS+=		VULKAN_DRIVERS+=${_vd:S/anv/intel/:S/radv/amd/:S/swrast_vk/swrast/:S/pvr_vk/imagination/}
 . endfor
 
 .include <bsd.port.options.mk>
