@@ -129,6 +129,8 @@ PLIST_SUB+= ARCH=${ARCH:S/amd/x86_/}
 .for _vd in ${OPTIONS_GROUP_VULKAN}
 . if defined(VULKAN_DRIVERS) && ${VULKAN_DRIVERS:M${_vd}}
 PLIST_SUB+=	${_vd}=""
+. elif defined(VULKAN_DRIVERS) && ${VULKAN_DRIVERS:M${_vd:S/anv/intel/:S/radv/amd/:S/swrast_vk/swrast/:S/pvr_vk/imagination/}}
+PLIST_SUB+=	${_vd}=""
 . else
 PLIST_SUB+=	${_vd}="@comment "
 . endif
