@@ -72,6 +72,8 @@ anv_RUN_DEPENDS=	spirv-tools>0:graphics/spirv-tools \
 radv_DESC=		AMD/ATI Southern Islands and newer Vulkan support
 swrast_vk_DESC=		Software Rasterizer Vulkan support
 pvr_vk_DESC=		Imagination PowerVR Rogue Vulkan support
+pvr_vk_BUILD_DEPENDS=	libclc-${LLVM_PORT:T}>0:devel/libclc@${LLVM_PORT:T}
+pvr_vk_RUN_DEPENDS=	libclc-${LLVM_PORT:T}>0:devel/libclc@${LLVM_PORT:T}
 
 OPTIONS_EXCLUDE+=	${ARCH:Marmv7:C/.+/anv radv/}
 OPTIONS_EXCLUDE+=	${ARCH:Namd64:Ni386:Nx86_64:C/.+/anv/}
