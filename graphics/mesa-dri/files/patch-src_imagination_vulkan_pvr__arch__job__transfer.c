@@ -1,17 +1,32 @@
 --- src/imagination/vulkan/pvr_arch_job_transfer.c.orig	2025-07-10 00:00:00 UTC
 +++ src/imagination/vulkan/pvr_arch_job_transfer.c
-@@ -2806,6 +2806,207 @@
+@@ -2806,6 +2806,11 @@
     return VK_SUCCESS;
  }
 
-+/**
-+ * Build a minimal ISP control stream for FAST_SCALE (copy_blit_core) path.
-+ *
-+ * pvr_3d_clip_blit builds its control stream via pvr_isp_ctrl_stream(), but
-+ * pvr_3d_copy_blit_core never did -- leaving isp_mtile_base=0 and causing ISP
-+ * faults. This function builds the same stream structure using the shader
-+ * state that copy_blit_core already set up.
-+ */
++static VkResult
++pvr_3d_copy_blit_build_isp_stream(struct pvr_transfer_ctx *ctx,
++                                  struct pvr_transfer_cmd *transfer_cmd,
++                                  struct pvr_transfer_prep_data *prep_data);
++
+ static VkResult pvr_3d_copy_blit_core(struct pvr_transfer_ctx *ctx,
+                                       struct pvr_transfer_cmd *transfer_cmd,
+                                       struct pvr_transfer_prep_data *prep_data,
+@@ -3053,6 +3058,10 @@
+    if ((pass_idx + 1U) < state->custom_mapping.pass_count)
+       *finished_out = false;
+
++   result = pvr_3d_copy_blit_build_isp_stream(ctx, transfer_cmd, prep_data);
++   if (result != VK_SUCCESS)
++      return result;
++
+    return VK_SUCCESS;
+ }
+
+@@ -4035,6 +4044,194 @@
+    return stream + size;
+ }
+
 +static VkResult
 +pvr_3d_copy_blit_build_isp_stream(struct pvr_transfer_ctx *ctx,
 +                                  struct pvr_transfer_cmd *transfer_cmd,
@@ -200,17 +215,6 @@
 +   return VK_SUCCESS;
 +}
 +
- static VkResult pvr_3d_copy_blit_core(struct pvr_transfer_ctx *ctx,
-                                       struct pvr_transfer_cmd *transfer_cmd,
-                                       struct pvr_transfer_prep_data *prep_data,
-@@ -3053,6 +3254,10 @@
-    if ((pass_idx + 1U) < state->custom_mapping.pass_count)
-       *finished_out = false;
-
-+   result = pvr_3d_copy_blit_build_isp_stream(ctx, transfer_cmd, prep_data);
-+   if (result != VK_SUCCESS)
-+      return result;
-+
-    return VK_SUCCESS;
- }
-
+ /**
+  * Writes ISP ctrl stream.
+  *
