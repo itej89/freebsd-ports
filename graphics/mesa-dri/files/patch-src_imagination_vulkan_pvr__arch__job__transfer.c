@@ -22,7 +22,7 @@
        }
        if (result != VK_SUCCESS)
           return result;
-@@ -6027,7 +6030,8 @@
+@@ -6030,7 +6033,8 @@
  VkResult pvr_arch_transfer_job_submit(struct pvr_transfer_ctx *ctx,
                                        struct pvr_sub_cmd_transfer *sub_cmd,
                                        struct vk_sync *wait_sync,
