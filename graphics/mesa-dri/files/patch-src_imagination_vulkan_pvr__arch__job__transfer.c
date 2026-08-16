@@ -1,9 +1,10 @@
 --- src/imagination/vulkan/pvr_arch_job_transfer.c.orig	2025-07-10 00:00:00 UTC
 +++ src/imagination/vulkan/pvr_arch_job_transfer.c
-@@ -5595,7 +5595,78 @@
+@@ -5594,6 +5594,84 @@
+    }
  
     return vk_error(ctx->device, VK_ERROR_FORMAT_NOT_SUPPORTED);
- }
++}
 +
 +static VkResult
 +pvr_3d_copy_blit_core_with_isp_stream(struct pvr_transfer_ctx *ctx,
@@ -19,7 +20,7 @@
 +   uint32_t texel_unwind_src = state->custom_mapping.texel_unwind_src;
 +   uint32_t mask_bit;
 +   VkResult result;
- 
++
 +   /* Fix attempt 4: pvr_3d_clip_blit() (the working FAST_2D path) does two
 +    * separate copy_blit_core-shaped things, not one: (1) a synthetic
 +    * pass-through background sub-pass (dst blended onto itself) that
@@ -66,20 +67,25 @@
 +
 +   pvr_transfer_set_filter(active_cmd, state);
 +
-+   result = pvr_isp_ctrl_stream(dev_info, ctx, active_cmd, prep_data);
-+
-+   mesa_loge("PVR_DEBUG v4: isp_ctrl_stream result=%d mtile_base=0x%016llx bgobjvals=0x%08x",
-+             (int)result,
++   mesa_loge("PVR_DEBUG v5: SKIPPING isp_ctrl_stream (diagnostic) mtile_base=0x%016llx bgobjvals=0x%08x",
 +             (unsigned long long)state->regs.isp_mtile_base,
 +             state->regs.isp_bgobjvals);
 +
-+   return result;
-+}
-+
++   /* Fix attempt 5 (diagnostic, not a real fix): fix attempts 3 and 4 both
++    * showed fault_addr values (0x3580-0x4c80) numerically LARGER than any
++    * isp_mtile_base value actually generated (max seen: 0xc00) during the
++    * same test run -- meaning isp_mtile_base does not obviously correlate
++    * with the fault address at all. Skip pvr_isp_ctrl_stream() entirely
++    * here (mask bit still set, mtile_base stays 0 like the original bug)
++    * to check whether the exact same fault_addr sequence still occurs
++    * without it -- if so, isp_mtile_base/isp_ctrl_stream is a red herring
++    * for THESE specific faults and the real cause is elsewhere.
++    */
++   return VK_SUCCESS;
+ }
+ 
  static VkResult pvr_3d_copy_blit(struct pvr_transfer_ctx *ctx,
-                                  struct pvr_transfer_cmd *transfer_cmd,
-                                  struct pvr_transfer_prep_data *prep_data,
-@@ -5708,11 +5779,11 @@
+@@ -5708,11 +5786,11 @@
  
           active_cmd->scissor = mappings[0U].dst_rect;
  
@@ -96,7 +102,7 @@
        }
  
        return result;
-@@ -5736,11 +5807,11 @@
+@@ -5736,11 +5814,11 @@
        }
     }
  
