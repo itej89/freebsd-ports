@@ -1,10 +1,9 @@
 --- src/imagination/vulkan/pvr_arch_job_transfer.c.orig	2025-07-10 00:00:00 UTC
 +++ src/imagination/vulkan/pvr_arch_job_transfer.c
-@@ -5594,6 +5594,84 @@
-    }
+@@ -5595,7 +5595,94 @@
  
     return vk_error(ctx->device, VK_ERROR_FORMAT_NOT_SUPPORTED);
-+}
+ }
 +
 +static VkResult
 +pvr_3d_copy_blit_core_with_isp_stream(struct pvr_transfer_ctx *ctx,
@@ -20,16 +19,19 @@
 +   uint32_t texel_unwind_src = state->custom_mapping.texel_unwind_src;
 +   uint32_t mask_bit;
 +   VkResult result;
-+
-+   /* Fix attempt 4: pvr_3d_clip_blit() (the working FAST_2D path) does two
-+    * separate copy_blit_core-shaped things, not one: (1) a synthetic
-+    * pass-through background sub-pass (dst blended onto itself) that
-+    * populates state->regs.pds_ and tex_state_ shader-offset fields for the
-+    * ISP background object, then (2) sets isp_bgobjvals.mask and calls
-+    * pvr_isp_ctrl_stream() on the REAL content, reusing that background
-+    * state. Fix attempt 3 skipped step (1) entirely and called
-+    * pvr_isp_ctrl_stream() with shader state describing the real content
-+    * instead of a background config -- this replicates the full sequence.
+ 
++   /* Fix attempt 6: pvr_isp_ctrl_stream() unconditionally packs
++    * regs->isp_render with mode_type = FAST_2D as one of its own side
++    * effects (see the pvr_csb_pack (&regs->isp_render, ...) call right
++    * after it sets isp_mtile_base) -- it is NOT a generic ISP-stream
++    * builder, it is FAST_2D-specific and silently converts the render
++    * mode. Fix attempts 3-5 all called it after copy_blit_core() had
++    * already configured FAST_SCALE-specific state (PBE setup, background
++    * object, etc via pvr_setup_hwbg_object/pvr_pbe_setup), producing an
++    * internally inconsistent job: isp_render says FAST_2D but everything
++    * else was set up for FAST_SCALE. This re-asserts FAST_SCALE mode
++    * after pvr_isp_ctrl_stream() runs, keeping its real mtile_base/
++    * primitive-block output but undoing its forced mode override.
 +    */
 +   bg_cmd.scissor = active_cmd->scissor;
 +   bg_cmd.cmd_buffer = active_cmd->cmd_buffer;
@@ -67,25 +69,33 @@
 +
 +   pvr_transfer_set_filter(active_cmd, state);
 +
-+   mesa_loge("PVR_DEBUG v5: SKIPPING isp_ctrl_stream (diagnostic) mtile_base=0x%016llx bgobjvals=0x%08x",
-+             (unsigned long long)state->regs.isp_mtile_base,
-+             state->regs.isp_bgobjvals);
++   result = pvr_isp_ctrl_stream(dev_info, ctx, active_cmd, prep_data);
++   if (result != VK_SUCCESS)
++      return result;
 +
-+   /* Fix attempt 5 (diagnostic, not a real fix): fix attempts 3 and 4 both
-+    * showed fault_addr values (0x3580-0x4c80) numerically LARGER than any
-+    * isp_mtile_base value actually generated (max seen: 0xc00) during the
-+    * same test run -- meaning isp_mtile_base does not obviously correlate
-+    * with the fault address at all. Skip pvr_isp_ctrl_stream() entirely
-+    * here (mask bit still set, mtile_base stays 0 like the original bug)
-+    * to check whether the exact same fault_addr sequence still occurs
-+    * without it -- if so, isp_mtile_base/isp_ctrl_stream is a red herring
-+    * for THESE specific faults and the real cause is elsewhere.
++   /* Undo pvr_isp_ctrl_stream()'s forced mode_type = FAST_2D -- keep its
++    * real mtile_base/primitive-block output, but this job is FAST_SCALE.
 +    */
-+   return VK_SUCCESS;
- }
- 
++   pvr_csb_pack (&state->regs.isp_render, CR_ISP_RENDER, reg) {
++      reg.mode_type = ROGUE_CR_ISP_RENDER_MODE_TYPE_FAST_SCALE;
++
++      result = pvr_isp_scan_direction(active_cmd,
++                                      state->custom_mapping.pass_count,
++                                      &reg.dir_type);
++   }
++
++   mesa_loge("PVR_DEBUG v6: mtile_base=0x%016llx bgobjvals=0x%08x isp_render=0x%08x",
++             (unsigned long long)state->regs.isp_mtile_base,
++             state->regs.isp_bgobjvals,
++             state->regs.isp_render);
++
++   return result;
++}
++
  static VkResult pvr_3d_copy_blit(struct pvr_transfer_ctx *ctx,
-@@ -5708,11 +5786,11 @@
+                                  struct pvr_transfer_cmd *transfer_cmd,
+                                  struct pvr_transfer_prep_data *prep_data,
+@@ -5708,11 +5795,11 @@
  
           active_cmd->scissor = mappings[0U].dst_rect;
  
@@ -102,7 +112,7 @@
        }
  
        return result;
-@@ -5736,11 +5814,11 @@
+@@ -5736,11 +5823,11 @@
        }
     }
  
