@@ -1,64 +1,45 @@
 --- src/imagination/vulkan/pvr_arch_job_transfer.c.orig	2025-07-10 00:00:00 UTC
 +++ src/imagination/vulkan/pvr_arch_job_transfer.c
-@@ -909,6 +909,41 @@
-        */
-       state->width_in_tiles -= state->origin_x_in_tiles;
-       state->height_in_tiles -= state->origin_y_in_tiles;
+@@ -3032,6 +3032,19 @@
+                                       &reg.dir_type);
+       if (result != VK_SUCCESS)
+          return result;
++   }
 +
-+      /*
-+       * Fix attempt 7 (BXE-4-32 / JH7110): size the ISP macro-tile grid from
-+       * the full destination surface rather than the clip rectangle.
-+       *
-+       * Evidence: the working proprietary driver was captured live on this
-+       * exact silicon (DDK bridge ioctl 0xc0206440, RGXTQ bridge id 128
-+       * function 3 = RGXKickTransfer) and submits
-+       * ISP_MTILE_SIZE = 0x00500040 (x=80, y=64) with ISP_RENDER_ORIGIN = 0
-+       * for BOTH a full-surface fill AND a 200x200 clipped blit -- i.e. it
-+       * always describes the whole render target (1280x1024 / 16). Every
-+       * other field we could decode matches ours byte-for-byte
-+       * (usc_pixel_output_ctrl=0x1ff8, isp_ctl=0x23000, isp_aa=0,
-+       * event_pixel_pds_info=0x202, isp_rgn=0).
-+       *
-+       * Ours derives the grid from the clip rect, which for a small blit
-+       * (e.g. a terminal glyph) yields ISP_MTILE_SIZE = 0x00010001 -- a
-+       * degenerate 1x1 macro-tile render. If the ISP control stream or
-+       * primitive blocks then reference anything outside that single tile,
-+       * the ISP has no valid tile to retire into and the job never
-+       * terminates -- which matches the measured behaviour exactly: 100% of
-+       * TQ_3D transfer jobs fault with reason=1 (GUILTY_LOCKUP) on dm=3,
-+       * independently of FAST_SCALE vs FAST_2D.
-+       */
-+      {
-+         uint32_t full_w = DIV_ROUND_UP(surface_params->width, tile_size_x);
-+         uint32_t full_h = DIV_ROUND_UP(surface_params->height, tile_size_y);
-+
-+         if (full_w > 0U && full_h > 0U) {
-+            state->origin_x_in_tiles = 0U;
-+            state->origin_y_in_tiles = 0U;
-+            state->width_in_tiles = full_w;
-+            state->height_in_tiles = full_h;
-+         }
++   /* BXE-4-32 fix: the FAST_SCALE path never set isp_rgn, leaving it zero
++    * from the memset of prep_data. The firmware feeds this field straight to
++    * GPU register 0x0F28, and the working proprietary driver programs
++    * 0x1F000000 there. See the matching change in pvr_isp_ctrl_stream().
++    */
++   if (PVR_HAS_FEATURE(dev_info, simple_internal_parameter_format_v2) &&
++       PVR_HAS_FEATURE(dev_info, ipf_creq_pf)) {
++      pvr_csb_pack (&regs->isp_rgn, CR_ISP_RGN_SIPF, isp_rgn) {
++         isp_rgn.cs_size_ipf_creq_pf =
++            ROGUE_CR_ISP_RGN_SIPF_CS_SIZE_IPF_CREQ_PF_MAX;
 +      }
     }
  
-    render_params->source_start = PVR_PBE_STARTPOS_BIT0;
-@@ -5994,12 +6029,15 @@
-          prep_data->state = prev_prep_data->state;
+    /* Set up pixel event handling. */
+@@ -4569,8 +4582,21 @@
+       pvr_csb_pack (&regs->isp_rgn, CR_ISP_RGN_SIPF, isp_rgn) {
+          /* Bit 0 in CR_ISP_RGN.cs_size_ipf_creq_pf is used to indicate the
+           * presence of a link.
++          *
++          * BXE-4-32 fix: this field must be 0x1F, not just the link bit.
++          * csbgen's own cr.xml carries a FIXME saying it "should have a
++          * default value of 0x1F"; the field is bits[24:28] with MAX=31.
++          * Confirmed three ways on this hardware:
++          *   - the open firmware's TQ_3D worker writes cmd+0x6c (isp_rgn)
++          *     straight to GPU register 0x0F28;
++          *   - a live /dev/mem read of that register under the WORKING
++          *     proprietary driver shows 0x1F000000 (= 0x1F << 24);
++          *   - we were submitting 0, and 100% of TQ_3D transfer jobs hung
++          *     with GUILTY_LOCKUP regardless of ISP render mode.
+           */
+-         isp_rgn.cs_size_ipf_creq_pf = was_linked;
++         isp_rgn.cs_size_ipf_creq_pf =
++            ROGUE_CR_ISP_RGN_SIPF_CS_SIZE_IPF_CREQ_PF_MAX;
++         (void)was_linked;
        }
- 
--      if (transfer_cmd->flags & PVR_TRANSFER_CMD_FLAGS_FAST2D) {
-+      {
-+         /* Force FAST2D path: pvr_3d_copy_blit uses FAST_SCALE mode but
-+          * never builds an ISP control stream, leaving isp_mtile_base=0.
-+          * The ISP faults on the NULL address, causing a FW context reset
-+          * that wipes PDS_EXEC_BASE and cascades into further faults.
-+          */
-+         transfer_cmd->flags |= PVR_TRANSFER_CMD_FLAGS_FAST2D;
-          result =
-             pvr_3d_clip_blit(ctx, transfer_cmd, prep_data, pass, &finished);
--      } else {
--         result =
--            pvr_3d_copy_blit(ctx, transfer_cmd, prep_data, pass, &finished);
-       }
-       if (result != VK_SUCCESS)
-          return result;
+    } else {
+       /* clang-format off */
