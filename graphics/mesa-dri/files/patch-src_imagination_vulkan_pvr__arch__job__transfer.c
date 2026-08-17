@@ -1,4 +1,4 @@
---- src/imagination/vulkan/pvr_arch_job_transfer.c.orig	2025-07-10 00:00:00 UTC
+--- src/imagination/vulkan/pvr_arch_job_transfer.c.orig
 +++ src/imagination/vulkan/pvr_arch_job_transfer.c
 @@ -3032,6 +3032,19 @@
                                        &reg.dir_type);
@@ -43,3 +43,39 @@
        }
     } else {
        /* clang-format off */
+@@ -5535,6 +5561,35 @@
+       transfer_cmd->dst.mem_layout = PVR_MEMLAYOUT_TWIDDLED;
+    }
+ 
++   /*
++    * The blob emits its copy blits with PBE memlayout LINEAR; we emit
++    * TWIDDLE_2D (docs/18). That may be legitimate - a compositor blits into
++    * GPU images, while the blob's test wrote a plain linear buffer - so
++    * report what the destination actually looks like, and allow forcing
++    * LINEAR to test whether the twiddled description is what scrambles the
++    * output into rectangular blocks.
++    */
++   {
++      static int logged;
++
++      if (logged < 6) {
++         logged++;
++         mesa_logw("PVRDST: mem_layout=%d w=%u h=%u stride=%u addr=0x%llx",
++                   (int)transfer_cmd->dst.mem_layout,
++                   transfer_cmd->dst.width,
++                   transfer_cmd->dst.height,
++                   transfer_cmd->dst.stride,
++                   (unsigned long long)transfer_cmd->dst.dev_addr.addr);
++      }
++
++      if (transfer_cmd->dst.mem_layout == PVR_MEMLAYOUT_TWIDDLED &&
++          getenv("PVR_FORCE_LINEAR_DST")) {
++         transfer_cmd->dst.mem_layout = PVR_MEMLAYOUT_LINEAR;
++         if (logged <= 6)
++            mesa_logw("PVRDST: forced LINEAR");
++      }
++   }
++
+    if (transfer_cmd->dst.mem_layout == PVR_MEMLAYOUT_TWIDDLED) {
+       transfer_cmd->dst.width =
+          MIN2((uint32_t)custom_mapping->max_clip_size, transfer_cmd->dst.width);
