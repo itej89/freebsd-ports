@@ -1,46 +1,11 @@
---- src/imagination/vulkan/pvr_arch_job_transfer.c.orig
+--- src/imagination/vulkan/pvr_arch_job_transfer.c.orig	2025-07-10 00:00:00 UTC
 +++ src/imagination/vulkan/pvr_arch_job_transfer.c
-@@ -742,7 +742,36 @@
-    *width_out = surface->width;
-    *stride_out = surface->stride;
-    *dev_addr_out = surface->dev_addr;
-+
-+   /*
-+    * The blob emits copy blits with PBE memlayout LINEAR; we emit TWIDDLE_2D
-+    * (docs/18, from pbe_wordx_mrty bit 32). That may be legitimate - a
-+    * compositor blits into GPU images while the blob's test wrote a linear
-+    * buffer - so report what the destination really is. If stride equals
-+    * width * bpp/8 the buffer is linear and describing it as twiddled is a
-+    * bug; otherwise TWIDDLE_2D is correct and this lead is dead.
-+    *
-+    * PVR_FORCE_LINEAR_DST=1 forces LINEAR on the destination only, so the
-+    * hypothesis can be A/B tested visually without another rebuild.
-+    */
-+   {
-+      static int logged;
- 
-+      if (!is_input && logged < 6) {
-+         logged++;
-+         mesa_logw("PVRDST: layout=%d w=%u h=%u stride=%u bpp=%u addr=0x%llx",
-+                   (int)*mem_layout_out, *width_out, *height_out, *stride_out,
-+                   bpp, (unsigned long long)dev_addr_out->addr);
-+      }
-+
-+      if (!is_input && *mem_layout_out == PVR_MEMLAYOUT_TWIDDLED &&
-+          getenv("PVR_FORCE_LINEAR_DST")) {
-+         *mem_layout_out = PVR_MEMLAYOUT_LINEAR;
-+         if (logged <= 6)
-+            mesa_logw("PVRDST: forced LINEAR");
-+      }
+@@ -3032,6 +3032,19 @@
+                                       &reg.dir_type);
+       if (result != VK_SUCCESS)
+          return result;
 +   }
 +
-    if (surface->mem_layout != PVR_MEMLAYOUT_LINEAR &&
-        !pvr_is_surface_aligned(*dev_addr_out, is_input, bpp)) {
-       return vk_error(NULL, VK_ERROR_FORMAT_NOT_SUPPORTED);
-@@ -3034,6 +3063,19 @@
-          return result;
-    }
- 
 +   /* BXE-4-32 fix: the FAST_SCALE path never set isp_rgn, leaving it zero
 +    * from the memset of prep_data. The firmware feeds this field straight to
 +    * GPU register 0x0F28, and the working proprietary driver programs
@@ -52,12 +17,10 @@
 +         isp_rgn.cs_size_ipf_creq_pf =
 +            ROGUE_CR_ISP_RGN_SIPF_CS_SIZE_IPF_CREQ_PF_MAX;
 +      }
-+   }
-+
+    }
+ 
     /* Set up pixel event handling. */
-    result = pvr_pbe_setup(transfer_cmd, ctx, state);
-    if (result != VK_SUCCESS)
-@@ -4569,8 +4611,21 @@
+@@ -4569,8 +4582,21 @@
        pvr_csb_pack (&regs->isp_rgn, CR_ISP_RGN_SIPF, isp_rgn) {
           /* Bit 0 in CR_ISP_RGN.cs_size_ipf_creq_pf is used to indicate the
            * presence of a link.
