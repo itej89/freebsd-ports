@@ -1,0 +1,24 @@
+--- src/imagination/vulkan/pvr_arch_job_render.c.orig
++++ src/imagination/vulkan/pvr_arch_job_render.c
+@@ -1562,8 +1562,19 @@
+        * successfully submitted. This will allow the next geometry job to be
+        * submitted to been run in parallel with it.
+        */
+-      rt_dataset->rt_data_idx =
+-         (rt_dataset->rt_data_idx + 1) % ARRAY_SIZE(rt_dataset->rt_datas);
++      /*
++       * PVR_SINGLE_RT_DATA=1 pins rendering to rt_datas[0].
++       *
++       * Renders of up to 12 region headers are pixel-exact; 13 or more fail,
++       * but only when rendering repeatedly into one context - a single render
++       * per fresh context is always fine. Mesa alternates between the two
++       * rt_datas here, so "first render works, second fails" is exactly the
++       * shape of rt_datas[1] being set up wrong above the 12-header boundary.
++       * Pinning the index tests that directly.
++       */
++      if (!getenv("PVR_SINGLE_RT_DATA"))
++         rt_dataset->rt_data_idx =
++            (rt_dataset->rt_data_idx + 1) % ARRAY_SIZE(rt_dataset->rt_datas);
+ 
+       rt_dataset->need_frag = false;
+    } else {
