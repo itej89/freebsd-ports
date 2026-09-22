@@ -1,0 +1,7 @@
+The FreeBSD DRM subsystem port carrying riscv64 support and the verisilicon
+DC8200 display driver used by the StarFive JH7110, as found on the VisionFive 2.
+
+Provides dmabuf, ttm, drm and verisilicon. The GPU itself comes from
+graphics/pvrsrvkm-kmod; the open-source PowerVR driver in this source tree is
+not built by default because it claims the same device and cannot coexist
+with it.

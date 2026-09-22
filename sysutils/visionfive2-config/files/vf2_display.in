@@ -1,0 +1,75 @@
+#!/bin/sh
+#
+# Bring up the VisionFive 2 display stack and program a mode.
+#
+# One service rather than an rc.conf kld_list entry, so the package does not
+# have to edit -- or silently replace -- the administrator's kld_list.
+#
+# Modules are loaded here rather than from loader.conf deliberately: rc(8)
+# runs after the root filesystem is up, so a module that fails or panics
+# cannot stop the board booting.
+#
+# A mode matters beyond the picture: the HDMI transmitter derives its audio
+# clock regeneration from the TMDS clock of the mode it is sending, so HDMI
+# audio does not work until something has set one -- and nothing else does on
+# a headless boot, since the verisilicon driver provides no fbdev or vt
+# console.
+#
+# vf2-setmode drops DRM master once the mode is up and then only holds the fd,
+# so a compositor can still take over; it keeps the output alive rather than
+# owning it. Closing the last fd would let the driver tear the mode down.
+#
+# PROVIDE: vf2_display
+# REQUIRE: FILESYSTEMS
+# BEFORE: LOGIN
+# KEYWORD: shutdown
+
+. /etc/rc.subr
+
+name="vf2_display"
+rcvar="vf2_display_enable"
+pidfile="/var/run/${name}.pid"
+start_cmd="vf2_display_start"
+stop_cmd="vf2_display_stop"
+
+: ${vf2_display_modules:="dmabuf ttm drm verisilicon pvrsrvkm wave5"}
+: ${vf2_display_setmode:="YES"}
+: ${vf2_display_moduledir:="/boot/drm-modules"}
+
+vf2_display_start()
+{
+	local m p
+
+	for m in ${vf2_display_modules}; do
+		kldstat -m "${m}" >/dev/null 2>&1 && continue
+		# Out-of-tree modules sit one directory down per module; the
+		# rest come from the running kernel's own directory.
+		p="${vf2_display_moduledir}/${m}/${m}.ko"
+		if [ -f "${p}" ]; then
+			kldload "${p}" 2>/dev/null || warn "could not load ${m}"
+		else
+			kldload "${m}" 2>/dev/null || warn "could not load ${m}"
+		fi
+	done
+
+	checkyesno vf2_display_setmode || return 0
+
+	if [ ! -c /dev/dri/card0 ]; then
+		warn "no /dev/dri/card0; not setting a mode"
+		return 1
+	fi
+
+	echo "Setting HDMI mode."
+	/usr/sbin/daemon -f -p ${pidfile} %%PREFIX%%/sbin/vf2-setmode
+}
+
+vf2_display_stop()
+{
+	[ -f ${pidfile} ] && kill "$(cat ${pidfile})" 2>/dev/null
+	rm -f ${pidfile}
+	return 0
+}
+
+load_rc_config $name
+: ${vf2_display_enable:="NO"}
+run_rc_command "$1"

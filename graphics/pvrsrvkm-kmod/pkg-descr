@@ -1,0 +1,10 @@
+Imagination's pvrsrvkm kernel driver -- the PowerVR Rogue DDK 1.19 services
+driver -- ported to FreeBSD for the PowerVR B-Series BXE-4-32 GPU in the
+StarFive JH7110, as found on the VisionFive 2.
+
+This is the proprietary-firmware path. It cannot be loaded alongside the
+open-source pvr driver: both claim the same GPU device, and they cannot be
+swapped at runtime.
+
+The firmware itself is packaged separately as misc/jh7110-firmware, because
+its redistribution is restricted.

@@ -1,0 +1,21 @@
+[
+{ type: install
+  message: <<EOM
+To bring up the display, GPU and video decoder at boot, and program an HDMI
+mode so that HDMI audio works:
+
+  sysrc vf2_display_enable=YES
+  service vf2_display start
+
+Loader tunables were installed as a sample; to use them:
+
+  cp /boot/loader.conf.d/visionfive2.conf.sample \
+     /boot/loader.conf.d/visionfive2.conf
+
+What the service loads can be adjusted without editing it:
+
+  vf2_display_modules="dmabuf ttm drm verisilicon pvrsrvkm wave5"
+  vf2_display_setmode="YES"     # NO to load modules but set no mode
+EOM
+}
+]

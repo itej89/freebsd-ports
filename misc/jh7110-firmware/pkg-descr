@@ -1,0 +1,9 @@
+Vendor firmware the StarFive JH7110 needs, installed into /boot/firmware
+where firmware(9) will find it:
+
+  rgx.fw.*  rgx.sh.*     Imagination PowerVR Rogue DDK 1.19 -- the firmware the
+                         GPU internal core runs, and the transfer shader image
+  wave511_dec_fw.bin     Chips&Media Wave511 video decoder
+
+The bootloader images in the distfile are not installed; writing those is a
+separate operation and is not currently possible from FreeBSD.

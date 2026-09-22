@@ -1,0 +1,12 @@
+Board configuration for FreeBSD on the StarFive VisionFive 2, so that a
+freshly built system comes up configured rather than needing to be set up by
+hand on the board.
+
+Provides the vf2_display service, which loads the display, GPU and video
+decoder modules and programs an HDMI mode. The mode is needed for more than
+the picture: the HDMI transmitter derives its audio clock regeneration from
+the TMDS clock of the mode it is sending, so HDMI audio does not work until
+something sets one, and nothing else does on a headless boot.
+
+Also installs loader tunables for the board as a sample file, leaving
+/boot/loader.conf to the administrator.
