@@ -23,7 +23,7 @@ ONLY_FOR_ARCHS_REASON=	the PowerVR GPU on the StarFive JH7110, a riscv64 SoC
 
 # Pinned by commit. A branch would silently build different source as it
 # moved; distinfo pins exactly these bytes.
-PVR_COMMIT=	5a38ca8c50a9
+PVR_COMMIT=	a52283a1a3dd
 PVR_DISTNAME=	pvrsrvkm-freebsd-${PVR_COMMIT}
 DRM_COMMIT=	691da90dc6526bce9a10c5d0a9104df4f8290067
 DRM_DISTNAME=	itej89-drm-kmod-20260922-${DRM_COMMIT}_GH0
@@ -46,6 +46,7 @@ PLIST_FILES=	${KMODDIR}/pvrsrvkm.ko
 do-build:
 	@cd ${WRKSRC} && ${SETENV} \
 	    DRM=${DRM_SRC} \
+	    SYSROOT= \
 	    SYSDIR=${SRC_BASE}/sys \
 	    B=${WRKDIR}/build \
 	    WORK=${WRKDIR}/shimwork \
