@@ -26,6 +26,17 @@ GH_TAGNAME=	691da90dc6526bce9a10c5d0a9104df4f8290067
 # this port provides only the DRM core and the display controller.
 MAKE_ARGS=	KMODS="dmabuf ttm drm verisilicon"
 
+# Without this the package is metadata only: the modules stage correctly but
+# pkg has nothing to pack. poudriere bulk does not run check-plist -- only
+# testport does -- so an empty package builds "successfully" and then fails
+# whatever depends on it, which is how this was found.
+PLIST_FILES=	${KMODDIR}/dmabuf.ko \
+		${KMODDIR}/ttm.ko \
+		${KMODDIR}/drm.ko \
+		${KMODDIR}/verisilicon.ko
+
+PVR_OSS_PLIST_FILES=	${KMODDIR}/pvr.ko
+
 OPTIONS_DEFINE=		PVR_OSS
 PVR_OSS_DESC=		Also build the open-source PowerVR driver (conflicts with pvrsrvkm)
 PVR_OSS_MAKE_ARGS=	KMODS="dmabuf ttm drm verisilicon pvr"
