@@ -1,6 +1,6 @@
 PORTNAME=	mesa-dri
 PORTVERSION=	${MESAVERSION}
-PORTREVISION=	4
+PORTREVISION=	6
 CATEGORIES=	graphics
 
 COMMENT=	OpenGL hardware acceleration drivers for DRI2+
@@ -115,6 +115,24 @@ MESON_ARGS+=	-Dandroid-libbacktrace=disabled \
 
 .if ${ARCH} != amd64
 MESON_ARGS+=	-Dintel-rt=disabled # https://gitlab.freedesktop.org/mesa/mesa/-/issues/10629
+.endif
+
+# The PowerVR Vulkan driver needs the *services* winsys to talk to the
+# Imagination DDK kernel driver, and meson leaves it out by default.
+#
+# meson.build gates the whole of src/imagination/vulkan/winsys/pvrsrvkm on
+# with_imagination_srv, including -DPVR_SUPPORT_SERVICES_DRIVER. Without that
+# define, pvr_drm_device_is_compatible() only ever matches a DRM driver named
+# "powervr" -- the upstream open-source one. Our kernel driver calls itself
+# "pvr", so every candidate node was rejected and the loader reported
+# ERROR_INITIALIZATION_FAILED with no GPU found.
+#
+# That is why this port's package never worked on the VisionFive 2 while a
+# hand-built Mesa did: the hand build passed -Dimagination-srv=true and the
+# port did not. It was a build option all along, not a source difference --
+# the tracker blamed the source twice before this was measured.
+.if defined(VULKAN_DRIVERS) && ${VULKAN_DRIVERS:Mimagination}
+MESON_ARGS+=	-Dimagination-srv=true
 .endif
 
 .for _gd in ${OPTIONS_GROUP_GALLIUM}
