@@ -1,5 +1,5 @@
 PORTNAME=	visionfive2-config
-PORTVERSION=	20260922
+PORTVERSION=	20260922.1
 CATEGORIES=	sysutils
 
 MAINTAINER=	itej89@gmail.com

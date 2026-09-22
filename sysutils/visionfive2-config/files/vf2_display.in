@@ -34,7 +34,11 @@ stop_cmd="vf2_display_stop"
 
 : ${vf2_display_modules:="dmabuf ttm drm verisilicon pvrsrvkm wave5"}
 : ${vf2_display_setmode:="YES"}
-: ${vf2_display_moduledir:="/boot/drm-modules"}
+# Empty means "use the normal module path", which is where packages install:
+# graphics/drm-vf2-kmod and graphics/pvrsrvkm-kmod put their modules in
+# /boot/modules and kldload finds them there. Set this only to prefer a
+# hand-built tree, where each module sits in its own subdirectory.
+: ${vf2_display_moduledir:=""}
 
 vf2_display_start()
 {
@@ -45,7 +49,7 @@ vf2_display_start()
 		# Out-of-tree modules sit one directory down per module; the
 		# rest come from the running kernel's own directory.
 		p="${vf2_display_moduledir}/${m}/${m}.ko"
-		if [ -f "${p}" ]; then
+		if [ -n "${vf2_display_moduledir}" ] && [ -f "${p}" ]; then
 			kldload "${p}" 2>/dev/null || warn "could not load ${m}"
 		else
 			kldload "${m}" 2>/dev/null || warn "could not load ${m}"
